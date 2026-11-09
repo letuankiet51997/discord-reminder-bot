@@ -1,0 +1,42 @@
+{
+  "$schema": "./events.schema.json",
+  "events": [
+    {
+      "title": "Điểm danh buổi sáng",
+      "time": "08:00",
+      "repeat": "daily",
+      "role": "everyone",
+      "message": "Chào buổi sáng mọi người, nhớ điểm danh nhé!"
+    },
+    {
+      "title": "Uống nước",
+      "time": "15:00"
+    },
+    {
+      "title": "Họp team",
+      "time": "09:30",
+      "repeat": "daily",
+      "role": "dev",
+      "message": "Họp trên kênh voice #meeting."
+    },
+    {
+      "title": "Raid guild",
+      "time": "2026-11-11 20:00",
+      "repeat": "weekly",
+      "role": "raider",
+      "message": "Tập trung ở kênh voice lúc 19:50."
+    },
+    {
+      "title": "Dọn dẹp server",
+      "time": "15/11/2026 10:00",
+      "repeat": "weekly"
+    },
+    {
+      "title": "Tổng kết tháng",
+      "time": "2026-11-30 21:00",
+      "repeat": "monthly",
+      "role": "here",
+      "message": "Mọi người gửi báo cáo tháng trước 22:00 nhé."
+    }
+  ]
+}

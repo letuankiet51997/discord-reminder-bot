@@ -1,0 +1,12 @@
+{
+  "$schema": "./events.schema.json",
+  "events": [
+    {
+      "title": "Điểm danh buổi sáng",
+      "time": "08:00",
+      "repeat": "daily",
+      "role": "everyone",
+      "message": "Chào buổi sáng mọi người, nhớ điểm danh nhé!"
+    }
+  ]
+}

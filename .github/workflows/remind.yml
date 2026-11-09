@@ -1,0 +1,48 @@
+name: remind
+
+on:
+  schedule:
+    # Every 5 minutes. GitHub often starts scheduled runs 5–15+ minutes late;
+    # src/send.js still sends a reminder up to 90 minutes after its time.
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+# One run at a time, so a reminder is never sent twice.
+concurrency:
+  group: remind
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Send due reminders
+        env:
+          TZ: Asia/Ho_Chi_Minh
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_ROLES: ${{ secrets.DISCORD_ROLES }}
+        run: node src/send.js
+
+      - name: Save state.json
+        if: always()
+        run: |
+          if git diff --quiet -- state.json; then
+            echo "state.json unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          git commit -m "chore(state): record sent reminders"
+          git pull --rebase
+          git push
