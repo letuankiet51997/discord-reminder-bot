@@ -65,6 +65,14 @@ role, check it does not reuse an alias or id they already listed.
 - From an event page: take each event's own "Xem chi tiết" link for `link` and
   its banner for `image`. Check every link opens (HTTP 200) before using it.
 
+## Feeds — `feeds.json`
+
+New posts from RSS feeds (e.g. a Facebook page converted by FetchRSS or RSS.app)
+are posted once a day at `time` (default `09:00`). Each feed has `name`, `url`
+(https RSS/Atom link, no duplicates) and optional `role` (same rules as events).
+You cannot create the RSS link: the user makes it on FetchRSS or RSS.app and sends
+it to you. Do not edit `feeds-state.json`.
+
 ## Do not
 
 - Do not use other `repeat` values (`once`, `weekdays`, `hằng ngày`, …). If the

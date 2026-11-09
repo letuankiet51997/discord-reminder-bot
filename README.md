@@ -69,6 +69,39 @@ Ví dụ đủ mọi trường hợp: [`events.example.json`](events.example.jso
 Định dạng chính xác: [`events.schema.json`](events.schema.json).
 Hướng dẫn cho AI sửa lịch: [`AGENTS.md`](AGENTS.md).
 
+## Bài viết mới từ Facebook / RSS — `feeds.json`
+
+Facebook không có RSS, nên dùng dịch vụ chuyển fanpage thành link RSS, ví dụ
+[FetchRSS](https://fetchrss.com/) hoặc [RSS.app](https://rss.app/rss-feed/create-facebook-rss-feed)
+(cần đăng ký; gói miễn phí giới hạn số feed và tần suất cập nhật). Dán link fanpage
+(ví dụ `https://www.facebook.com/nghichthuyhanofficial/`) → lấy link RSS `.xml`.
+
+```json
+{
+  "time": "09:00",
+  "feeds": [
+    {
+      "name": "Nghịch Thủy Hàn",
+      "url": "https://fetchrss.com/rss/xxxxxxxx.xml",
+      "role": "everyone"
+    }
+  ]
+}
+```
+
+| Trường | Bắt buộc | Giá trị |
+|---|---|---|
+| `time` | | Giờ kiểm tra mỗi ngày, mặc định `09:00` |
+| `name` | ✅ | Tên hiện trong tin: "📰 **Nghịch Thủy Hàn** có bài viết mới" |
+| `url` | ✅ | Link RSS/Atom `https://`. Không trùng nhau |
+| `role` | | Như sự kiện: tên trong `DISCORD_ROLES`, `everyone`, `here` |
+
+- Bot kiểm tra **mỗi ngày một lần**, ở lần chạy đầu tiên từ `time` trở đi (GitHub
+  có thể trễ vài phút). Bài mới được gửi kèm link **📖 Xem bài viết** và ảnh.
+- **Lần kiểm tra đầu tiên của một feed không gửi gì**: bot chỉ ghi nhớ các bài đang
+  có để không xả bài cũ vào kênh. Từ hôm sau mới gửi bài mới. Tối đa 5 bài/feed/lần.
+- `feeds-state.json` lưu bài đã gửi — đừng sửa tay.
+
 ## Cài đặt (một lần, ~10 phút)
 
 1. **Tạo webhook**: trong Discord, chuột phải bot channel → **Edit Channel** →
