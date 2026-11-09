@@ -24,6 +24,29 @@ if (!WEBHOOK_URL && !DRY_RUN) {
   process.exit(1);
 }
 
+// TEST_MESSAGE=1: post one test message to check the webhook, then stop.
+if (process.env.TEST_MESSAGE === '1') {
+  const body = {
+    content: `✅ **Bot nhắc nhở hoạt động** — tin thử lúc ${new Date().toLocaleString('vi-VN')}`,
+    allowed_mentions: { parse: [] },
+  };
+  if (DRY_RUN) {
+    console.log(`[dry-run] ${JSON.stringify(body)}`);
+    process.exit(0);
+  }
+  const res = await fetch(WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    console.error(`Test message failed: ${res.status} ${await res.text()}`);
+    process.exit(1);
+  }
+  console.log('Test message sent');
+  process.exit(0);
+}
+
 const now = Date.now();
 const { roles, errors: roleErrors } = parseRoleMap(process.env.DISCORD_ROLES);
 const { definitions, errors: eventErrors } = loadEventDefinitions(await readJson(EVENTS_FILE, { events: [] }), roles);

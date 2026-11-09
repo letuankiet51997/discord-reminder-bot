@@ -5,7 +5,12 @@ on:
     # Every 5 minutes. GitHub often starts scheduled runs 5–15+ minutes late;
     # src/send.js still sends a reminder up to 90 minutes after its time.
     - cron: '*/5 * * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Gửi tin thử ngay để kiểm tra webhook (không gửi lịch nhắc)'
+        type: boolean
+        default: false
 
 # One run at a time, so a reminder is never sent twice.
 concurrency:
@@ -31,6 +36,7 @@ jobs:
           TZ: Asia/Ho_Chi_Minh
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_ROLES: ${{ secrets.DISCORD_ROLES }}
+          TEST_MESSAGE: ${{ inputs.test && '1' || '' }}
         run: node src/send.js
 
       - name: Save state.json
