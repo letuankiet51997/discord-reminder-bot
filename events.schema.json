@@ -53,6 +53,30 @@
         "message": {
           "type": "string",
           "description": "Extra text shown under the title."
+        },
+        "image": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://",
+          "description": "Optional https:// link to an image, shown large under the message."
+        },
+        "link": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://",
+          "description": "Optional https:// link to the event page, shown as a clickable 'Xem chi tiết sự kiện'."
+        },
+        "until": {
+          "type": "string",
+          "pattern": "^(\\d{4}-\\d{1,2}-\\d{1,2}|\\d{1,2}/\\d{1,2}/\\d{4})$",
+          "description": "Optional last day to remind (inclusive), YYYY-MM-DD or DD/MM/YYYY. Omit to repeat forever."
+        },
+        "type": {
+          "enum": [
+            "in-game",
+            "off-game"
+          ],
+          "description": "Optional. in-game = done inside the game; off-game = outside the game (website, restaurant, offline meetup)."
         }
       },
       "if": {

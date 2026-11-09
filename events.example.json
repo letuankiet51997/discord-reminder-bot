@@ -24,7 +24,8 @@
       "time": "2026-11-11 20:00",
       "repeat": "weekly",
       "role": "raider",
-      "message": "Tập trung ở kênh voice lúc 19:50."
+      "message": "Tập trung ở kênh voice lúc 19:50.",
+      "type": "in-game"
     },
     {
       "title": "Dọn dẹp server",
@@ -36,7 +37,11 @@
       "time": "2026-11-30 21:00",
       "repeat": "monthly",
       "role": "here",
-      "message": "Mọi người gửi báo cáo tháng trước 22:00 nhé."
+      "message": "Mọi người gửi báo cáo tháng trước 22:00 nhé.",
+      "image": "https://example.com/images/tong-ket-thang.png",
+      "type": "in-game",
+      "until": "2027-06-30",
+      "link": "https://example.com/su-kien/tong-ket-thang"
     }
   ]
 }

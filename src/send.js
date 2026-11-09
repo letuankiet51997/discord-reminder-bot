@@ -57,7 +57,7 @@ const fmt = (ms) => new Date(ms).toLocaleString('vi-VN');
 console.log(`Now ${fmt(now)} — ${definitions.length} event(s)`);
 for (const def of definitions) {
   const next = nextOccurrence(def, now);
-  console.log(`  • ${def.title} · ${REPEATS[def.repeat]} · next ${next ? fmt(next) : '-'}`);
+  console.log(`  • ${def.title} · ${REPEATS[def.repeat]} · next ${next ? fmt(next) : 'đã kết thúc'}`);
 }
 for (const e of errors) console.error(`  ⚠️ ${e}`);
 

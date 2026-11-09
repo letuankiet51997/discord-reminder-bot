@@ -30,6 +30,10 @@ The user sends a list of reminders, in any language or format. Turn it into
 | `repeat` | no | Only `daily`, `weekly` or `monthly`. Default `daily`. |
 | `role` | no | A role **alias** from the `DISCORD_ROLES` secret (e.g. `dev`), `everyone` or `here`. Omit for no ping. |
 | `message` | no | Extra text under the title. |
+| `type` | no | `in-game` (done inside the game) or `off-game` (website, restaurant, offline meetup…). |
+| `until` | no | Last day to remind, inclusive: `YYYY-MM-DD` or `DD/MM/YYYY`. Set it to the event's end date. Omit to repeat forever. |
+| `link` | no | `https://` link to the event's own detail page; use the round-up page when the event has none. |
+| `image` | no | `https://` link to the event's banner image (`.png`, `.jpg`, `.webp`). |
 
 | `repeat` | `time` format | Meaning |
 |---|---|---|
@@ -57,6 +61,9 @@ The user sends a list of reminders, in any language or format. Turn it into
 Before writing, check the list has no duplicate event. When the user gives a new
 role, check it does not reuse an alias or id they already listed.
 - "8h tối", "8pm" → `20:00`. "8h sáng" → `08:00`.
+- "sự kiện từ 6/11 đến 13/11" → `"until": "2026-11-13"`; skip events that already ended.
+- From an event page: take each event's own "Xem chi tiết" link for `link` and
+  its banner for `image`. Check every link opens (HTTP 200) before using it.
 
 ## Do not
 

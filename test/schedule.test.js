@@ -136,3 +136,49 @@ test('buildMessage only allows the intended mention', () => {
     roles: [],
   });
 });
+
+test('image must be an https link and becomes an embed', () => {
+  const { definitions, errors } = loadEventDefinitions([
+    { title: 'Có ảnh', time: '09:00', image: 'https://example.com/banner.png' },
+    { title: 'http', time: '09:00', image: 'http://example.com/a.png' },
+    { title: 'Không phải link', time: '10:00', image: 'banner.png' },
+  ]);
+  assert.equal(definitions.length, 1);
+  assert.equal(errors.length, 2);
+  assert.deepEqual(buildMessage(definitions[0]).embeds, [{ image: { url: 'https://example.com/banner.png' } }]);
+  assert.equal(buildMessage({ title: 'A', role: null, message: '', image: null }).embeds, undefined);
+});
+
+test('until stops reminders after that day', () => {
+  const { definitions, errors } = loadEventDefinitions([
+    { title: 'Điểm danh', time: '20:00', until: '2026-11-13' },
+    { title: 'Sai until', time: '20:00', until: '13-11-2026' },
+    { title: 'Until trước', time: '2026-11-20 20:00', repeat: 'weekly', until: '2026-11-13' },
+  ]);
+  assert.equal(errors.length, 2);
+  const [def] = definitions;
+  assert.equal(findDue([def], at(2026, 11, 13, 20, 5), {}).length, 1); // last day
+  assert.equal(findDue([def], at(2026, 11, 14, 20, 5), {}).length, 0); // ended
+  assert.equal(nextOccurrence(def, at(2026, 11, 13, 21)), null);
+});
+
+test('link becomes a clickable embed title, with the image below', () => {
+  const [def] = loadEventDefinitions([
+    { title: 'A', time: '09:00', link: 'https://example.com/event', image: 'https://example.com/a.webp' },
+  ]).definitions;
+  assert.deepEqual(buildMessage(def).embeds, [
+    { title: '📖 Xem chi tiết sự kiện', url: 'https://example.com/event', image: { url: 'https://example.com/a.webp' } },
+  ]);
+  assert.equal(loadEventDefinitions([{ title: 'B', time: '09:00', link: 'không phải link' }]).errors.length, 1);
+});
+
+test('type adds an in-game or off-game line under the title', () => {
+  const { definitions, errors } = loadEventDefinitions([
+    { title: 'A', time: '09:00', type: 'off-game', message: 'Đăng ký trước' },
+    { title: 'B', time: '09:00', type: 'In-Game' },
+    { title: 'C', time: '09:00', type: 'online' },
+  ]);
+  assert.equal(errors.length, 1);
+  assert.equal(buildMessage(definitions[0]).content, '🔔 **A**\n📍 Sự kiện off-game\nĐăng ký trước');
+  assert.equal(buildMessage(definitions[1]).content, '🔔 **B**\n🎮 Sự kiện in-game');
+});

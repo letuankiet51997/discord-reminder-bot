@@ -37,6 +37,10 @@ không cần server, không cần treo máy.
 | `repeat` | | `daily` (mặc định), `weekly` hoặc `monthly` |
 | `role` | | Tên ngắn khai trong `DISCORD_ROLES` (ví dụ `raider`), `everyone` hoặc `here`. Bỏ trống = không ping |
 | `message` | | Nội dung thêm dưới tiêu đề |
+| `type` | | `in-game` (🎮 Sự kiện in-game) hoặc `off-game` (📍 Sự kiện off-game) — hiện dưới tiêu đề |
+| `until` | | Ngày cuối còn nhắc (tính cả ngày đó): `2026-11-13` hoặc `13/11/2026`. Bỏ trống = lặp mãi |
+| `link` | | Link `https://` trang sự kiện → dòng **📖 Xem chi tiết sự kiện** bấm được |
+| `image` | | Link `https://` ảnh → hiện to dưới tin |
 
 - `daily`: `time` chỉ cần giờ.
 - `weekly`: `time` phải có ngày → lặp vào **thứ** của ngày đó.

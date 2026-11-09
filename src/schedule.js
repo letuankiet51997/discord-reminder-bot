@@ -7,6 +7,12 @@ export const REPEATS = {
   monthly: 'Hằng tháng',
 };
 
+/** Optional "type" of an event, shown as a line under the title. */
+export const EVENT_TYPES = {
+  'in-game': '🎮 Sự kiện in-game',
+  'off-game': '📍 Sự kiện off-game',
+};
+
 /** Accept "daily", "weekly" or "monthly" (any case). Returns null otherwise. */
 export function parseRepeat(text = '') {
   const key = text.trim().toLowerCase();
@@ -71,8 +77,13 @@ export function previousOccurrence({ startAt, repeat }, now) {
   return null;
 }
 
-/** First occurrence of the event after `now`. Used for logs. */
-export function nextOccurrence({ startAt, repeat }, now) {
+/** First occurrence of the event after `now` (null once past `until`). Used for logs. */
+export function nextOccurrence(def, now) {
+  const occ = rawNextOccurrence(def, now);
+  return occ !== null && def.until != null && occ > def.until ? null : occ;
+}
+
+function rawNextOccurrence({ startAt, repeat }, now) {
   const start = new Date(startAt);
   const from = new Date(Math.max(now, startAt));
 
@@ -102,6 +113,7 @@ export function findDue(definitions, now, state, maxLateMs = 90 * 60_000) {
   for (const def of definitions) {
     const occurrence = previousOccurrence(def, now);
     if (occurrence === null || now - occurrence > maxLateMs) continue;
+    if (def.until != null && occurrence > def.until) continue;
     if ((state[def.key] ?? 0) >= occurrence) continue;
     due.push({ def, occurrence });
   }
@@ -186,6 +198,35 @@ export function loadEventDefinitions(raw, roles) {
       }
     }
 
+    let image = null;
+    if (item.image !== undefined && item.image !== '') {
+      image = parseImageUrl(item.image);
+      if (!image) return errors.push(`${label} "${title}": "image" phải là link https:// (đang là ${item.image})`);
+    }
+
+    let link = null;
+    if (item.link !== undefined && item.link !== '') {
+      link = parseImageUrl(item.link);
+      if (!link) return errors.push(`${label} "${title}": "link" phải là link https:// (đang là ${item.link})`);
+    }
+
+    let until = null;
+    if (item.until !== undefined && item.until !== '') {
+      until = typeof item.until === 'string' ? parseEndOfDay(item.until) : null;
+      if (until === null) {
+        return errors.push(`${label} "${title}": "until" phải là ngày YYYY-MM-DD hoặc DD/MM/YYYY (đang là ${item.until})`);
+      }
+      if (until < startAt) return errors.push(`${label} "${title}": "until" trước ngày trong "time"`);
+    }
+
+    let type = null;
+    if (item.type !== undefined && item.type !== '') {
+      type = typeof item.type === 'string' ? item.type.trim().toLowerCase() : '';
+      if (!Object.hasOwn(EVENT_TYPES, type)) {
+        return errors.push(`${label} "${title}": "type" phải là in-game hoặc off-game (đang là ${item.type})`);
+      }
+    }
+
     const key = `${title}|${time}|${repeat}`;
     if (definitions.some((d) => d.key === key)) {
       return errors.push(`${label} "${title}": trùng với một sự kiện khác (cùng title, time, repeat)`);
@@ -197,18 +238,56 @@ export function loadEventDefinitions(raw, roles) {
       startAt,
       repeat,
       role,
+      type,
       message: typeof item.message === 'string' ? item.message.trim() : '',
+      image,
+      link,
+      until,
     });
   });
   return { definitions, errors };
 }
 
-/** Discord webhook body for one reminder. */
-export function buildMessage({ title, role, message }) {
+/** "2026-11-13" or "13/11/2026" → 23:59:59.999 of that day, or null. */
+export function parseEndOfDay(text) {
+  const value = text.trim();
+  const m = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/) ?? value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const [y, mo, d] = value.includes('/') ? [+m[3], +m[2], +m[1]] : [+m[1], +m[2], +m[3]];
+  const day = build(y, mo, d, 0, 0);
+  return day === null ? null : day + 24 * 60 * 60_000 - 1;
+}
+
+/** An absolute https:// URL, or null. */
+export function parseImageUrl(value) {
+  if (typeof value !== 'string') return null;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Discord webhook body for one reminder. A link and an image go into one
+ * embed: the link as a clickable "Xem chi tiết" title, the image below it.
+ */
+export function buildMessage({ title, role, type, message, image, link }) {
   const everyone = role === 'everyone' || role === 'here';
   const mention = !role ? '' : everyone ? `@${role} ` : `<@&${role}> `;
-  return {
-    content: `${mention}🔔 **${title}**${message ? `\n${message}` : ''}`,
+  const lines = [`${mention}🔔 **${title}**`];
+  if (type) lines.push(EVENT_TYPES[type]);
+  if (message) lines.push(message);
+  const body = {
+    content: lines.join('\n'),
     allowed_mentions: everyone ? { parse: ['everyone'] } : { parse: [], roles: role ? [role] : [] },
   };
+  if (image || link) {
+    const embed = {};
+    if (link) Object.assign(embed, { title: '📖 Xem chi tiết sự kiện', url: link });
+    if (image) embed.image = { url: image };
+    body.embeds = [embed];
+  }
+  return body;
 }
