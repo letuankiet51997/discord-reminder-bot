@@ -1,5 +1,6 @@
 {
   "$schema": "./events.schema.json",
+  "dailyAt": "08:00",
   "events": [
     {
       "title": "Điểm danh buổi sáng",

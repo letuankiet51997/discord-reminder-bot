@@ -2,17 +2,17 @@ name: remind
 
 on:
   schedule:
-    # Every 5 minutes. GitHub often starts scheduled runs 5–15+ minutes late;
-    # src/send.js still sends a reminder up to 90 minutes after its time.
-    - cron: '*/5 * * * *'
+    # Every hour at :07 (UTC). GitHub skips or delays many scheduled runs, so
+    # the digest is sent by the first run at or after "dailyAt" each day.
+    - cron: '7 * * * *'
   workflow_dispatch:
     inputs:
       test:
-        description: 'Gửi tin thử ngay để kiểm tra webhook (không gửi lịch nhắc)'
+        description: 'Gửi tin thử ngay để kiểm tra webhook (không gửi tin tổng hợp)'
         type: boolean
         default: false
 
-# One run at a time, so a reminder is never sent twice.
+# One run at a time, so the digest is never sent twice.
 concurrency:
   group: remind
   cancel-in-progress: false
@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: Send due reminders
+      - name: Send today's digest
         env:
           TZ: Asia/Ho_Chi_Minh
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
@@ -49,6 +49,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add state.json feeds-state.json
-          git commit -m "chore(state): record sent reminders"
+          git commit -m "chore(state): record sent digest"
           git pull --rebase
           git push

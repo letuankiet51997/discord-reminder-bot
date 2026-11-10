@@ -4,19 +4,21 @@ Instructions for an AI that updates the reminder list of this bot.
 
 ## What the bot does
 
-GitHub Actions runs `src/send.js` every 5 minutes. It posts the reminders that
-are due from `events.json` to one Discord channel through a webhook. Editing and
-committing `events.json` is the only way to add, change or remove a reminder.
-Reminders may arrive 5–15 minutes late; that is accepted.
+GitHub Actions runs `src/send.js` every hour. Once a day, on the first run at or
+after `dailyAt` (default `08:00`), it posts one message to one Discord channel
+through a webhook. The message lists the events from `events.json` that happen
+today, sorted by time. Editing and committing `events.json` is the only way to
+add, change or remove an event. The message may arrive hours late; that is accepted.
 
 ## Your task
 
-The user sends a list of reminders, in any language or format. Turn it into
+The user sends a list of events, in any language or format. Turn it into
 `events.json`:
 
 1. Read `events.schema.json` (exact format) and `events.example.json` (every case).
-2. Write one object per reminder in `events.json`, using only the fields below.
-   Keep the `"$schema": "./events.schema.json"` line.
+2. Write one object per event in `events.json`, using only the fields below.
+   Keep the `"$schema": "./events.schema.json"` and `"dailyAt"` lines. Change
+   `dailyAt` (`HH:MM`) only when the user asks for another time of the daily message.
 3. Replace the whole list when the user sends a full list; add, change or remove
    only the named entries when the user asks for a change.
 4. Run `npm test` and confirm it passes. Show the user the final list.
@@ -26,20 +28,20 @@ The user sends a list of reminders, in any language or format. Turn it into
 | Field | Required | Rule |
 |---|---|---|
 | `title` | yes | Short headline. Keep the user's wording. |
-| `time` | yes | Vietnam time, 24-hour clock. See the table below. |
+| `time` | yes | Vietnam time, 24-hour clock. See the table below. Shown next to the title. |
 | `repeat` | no | Only `daily`, `weekly` or `monthly`. Default `daily`. |
-| `role` | no | A role **alias** from the `DISCORD_ROLES` secret (e.g. `dev`), `everyone` or `here`. Omit for no ping. |
+| `role` | no | Who to ping on days with this event: a role **alias** from the `DISCORD_ROLES` secret (e.g. `dev`), `everyone` or `here`. Omit for no ping. |
 | `message` | no | Extra text under the title. |
 | `type` | no | `in-game` (done inside the game) or `off-game` (website, restaurant, offline meetup…). |
-| `until` | no | Last day to remind, inclusive: `YYYY-MM-DD` or `DD/MM/YYYY`. Set it to the event's end date. Omit to repeat forever. |
+| `until` | no | Last day to list the event, inclusive: `YYYY-MM-DD` or `DD/MM/YYYY`. Set it to the event's end date. Omit to repeat forever. |
 | `link` | no | `https://` link to the event's own detail page; use the round-up page when the event has none. |
 | `image` | no | `https://` link to the event's banner image (`.png`, `.jpg`, `.webp`). |
 
 | `repeat` | `time` format | Meaning |
 |---|---|---|
-| `daily` | `HH:MM` | Every day at that time. |
-| `weekly` | `YYYY-MM-DD HH:MM` | Every week on the weekday of that date. |
-| `monthly` | `YYYY-MM-DD HH:MM` | Every month on that day of the month (short months use their last day). |
+| `daily` | `HH:MM` | Listed every day. |
+| `weekly` | `YYYY-MM-DD HH:MM` | Listed every week on the weekday of that date. |
+| `monthly` | `YYYY-MM-DD HH:MM` | Listed every month on that day of the month (short months use their last day). |
 
 ## Converting what the user says
 
@@ -76,7 +78,7 @@ it to you. Do not edit `feeds-state.json`.
 ## Do not
 
 - Do not use other `repeat` values (`once`, `weekdays`, `hằng ngày`, …). If the
-  user asks for one-time or weekday-only reminders, say the bot does not support
+  user asks for one-time or weekday-only events, say the bot does not support
   it; for weekdays only, offer five `weekly` entries (Monday to Friday).
 - Do not add fields that are not in `events.schema.json`.
 - Never put a role id in `events.json` or any other file in the repo.

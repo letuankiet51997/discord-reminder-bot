@@ -3,18 +3,18 @@ process.env.TZ = 'Asia/Ho_Chi_Minh';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildMessage,
-  findDue,
+  buildDigest,
+  eventsOnDay,
+  isDailyRunDue,
+  loadDailyAt,
   loadEventDefinitions,
   nextOccurrence,
   parseDateTime,
   parseRepeat,
   parseRoleMap,
-  previousOccurrence,
 } from '../src/schedule.js';
 
 const at = (y, mo, d, h = 0, mi = 0) => new Date(y, mo - 1, d, h, mi).getTime();
-const MIN = 60_000;
 const ROLE = '123456789012345678';
 
 test('parseRepeat accepts only daily, weekly and monthly', () => {
@@ -50,38 +50,26 @@ test('parseRoleMap rejects duplicate aliases, duplicate ids and bad entries', ()
   assert.match(errors[1], /id 123456789012345678 bị trùng/);
 });
 
-test('daily: previous and next occurrence around the clock time', () => {
+test('daily: next occurrence around the clock time', () => {
   const daily = { startAt: parseDateTime('08:00'), repeat: 'daily' };
-  assert.equal(previousOccurrence(daily, at(2026, 11, 9, 8, 3)), at(2026, 11, 9, 8));
-  assert.equal(previousOccurrence(daily, at(2026, 11, 9, 7, 59)), at(2026, 11, 8, 8));
+  assert.equal(nextOccurrence(daily, at(2026, 11, 9, 7, 59)), at(2026, 11, 9, 8));
   assert.equal(nextOccurrence(daily, at(2026, 11, 9, 8, 3)), at(2026, 11, 10, 8));
 });
 
 test('weekly keeps the weekday of the date', () => {
   const weekly = { startAt: at(2026, 11, 11, 20), repeat: 'weekly' }; // Wednesday
-  assert.equal(previousOccurrence(weekly, at(2026, 11, 20, 12)), at(2026, 11, 18, 20));
   assert.equal(nextOccurrence(weekly, at(2026, 11, 12)), at(2026, 11, 18, 20));
 });
 
 test('weekly and monthly do not fire before their start date', () => {
   const weekly = { startAt: at(2026, 11, 11, 20), repeat: 'weekly' };
-  assert.equal(previousOccurrence(weekly, at(2026, 11, 10)), null);
+  assert.equal(nextOccurrence(weekly, at(2026, 11, 1)), at(2026, 11, 11, 20));
 });
 
 test('monthly clamps to the last day of short months', () => {
   const monthly = { startAt: at(2026, 1, 31, 8), repeat: 'monthly' };
-  assert.equal(previousOccurrence(monthly, at(2026, 2, 28, 9)), at(2026, 2, 28, 8));
+  assert.equal(nextOccurrence(monthly, at(2026, 3, 1)), at(2026, 3, 31, 8));
   assert.equal(nextOccurrence(monthly, at(2026, 2, 1)), at(2026, 2, 28, 8));
-});
-
-test('findDue sends once per occurrence and tolerates late runs', () => {
-  const def = { key: 'k', startAt: parseDateTime('08:00'), repeat: 'daily' };
-  const occ = at(2026, 11, 9, 8);
-
-  assert.equal(findDue([def], occ - MIN, {}).length, 0); // not yet
-  assert.deepEqual(findDue([def], occ + 40 * MIN, {}).map((d) => d.occurrence), [occ]); // late run
-  assert.equal(findDue([def], occ + 40 * MIN, { k: occ }).length, 0); // already sent
-  assert.equal(findDue([def], occ + 3 * 60 * MIN, {}).length, 0); // too late
 });
 
 test('loadEventDefinitions validates every field and resolves role aliases', () => {
@@ -122,63 +110,74 @@ test('loadEventDefinitions without a role map only checks the alias format', () 
   assert.equal(definitions[0].role, 'dev');
 });
 
-test('buildMessage only allows the intended mention', () => {
-  assert.deepEqual(buildMessage({ title: 'A', role: 'everyone', message: 'x' }), {
-    content: '@everyone 🔔 **A**\nx',
-    allowed_mentions: { parse: ['everyone'] },
-  });
-  assert.deepEqual(buildMessage({ title: 'B', role: ROLE, message: '' }), {
-    content: `<@&${ROLE}> 🔔 **B**`,
-    allowed_mentions: { parse: [], roles: [ROLE] },
-  });
-  assert.deepEqual(buildMessage({ title: 'C', role: null, message: '' }).allowed_mentions, {
-    parse: [],
-    roles: [],
-  });
-});
-
-test('image must be an https link and becomes an embed', () => {
+test('image must be an https link', () => {
   const { definitions, errors } = loadEventDefinitions([
     { title: 'Có ảnh', time: '09:00', image: 'https://example.com/banner.png' },
     { title: 'http', time: '09:00', image: 'http://example.com/a.png' },
     { title: 'Không phải link', time: '10:00', image: 'banner.png' },
   ]);
   assert.equal(definitions.length, 1);
+  assert.equal(definitions[0].image, 'https://example.com/banner.png');
   assert.equal(errors.length, 2);
-  assert.deepEqual(buildMessage(definitions[0]).embeds, [{ image: { url: 'https://example.com/banner.png' } }]);
-  assert.equal(buildMessage({ title: 'A', role: null, message: '', image: null }).embeds, undefined);
 });
 
-test('until stops reminders after that day', () => {
-  const { definitions, errors } = loadEventDefinitions([
-    { title: 'Điểm danh', time: '20:00', until: '2026-11-13' },
-    { title: 'Sai until', time: '20:00', until: '13-11-2026' },
-    { title: 'Until trước', time: '2026-11-20 20:00', repeat: 'weekly', until: '2026-11-13' },
-  ]);
-  assert.equal(errors.length, 2);
-  const [def] = definitions;
-  assert.equal(findDue([def], at(2026, 11, 13, 20, 5), {}).length, 1); // last day
-  assert.equal(findDue([def], at(2026, 11, 14, 20, 5), {}).length, 0); // ended
-  assert.equal(nextOccurrence(def, at(2026, 11, 13, 21)), null);
+test('the digest runs once a day, on the first run at or after dailyAt', () => {
+  assert.deepEqual(isDailyRunDue('08:00', at(2026, 11, 10, 7, 55), '2026-11-09'), { due: false, today: '2026-11-10' });
+  assert.equal(isDailyRunDue('08:00', at(2026, 11, 10, 8, 7), '2026-11-09').due, true);
+  assert.equal(isDailyRunDue('08:00', at(2026, 11, 10, 22, 7), undefined).due, true); // late run still sends
+  assert.equal(isDailyRunDue('08:00', at(2026, 11, 10, 22, 7), '2026-11-10').due, false); // already sent
+  assert.deepEqual(loadDailyAt({}), { time: '08:00', errors: [] });
+  assert.equal(loadDailyAt({ dailyAt: '7:30' }).time, '07:30');
+  assert.equal(loadDailyAt({ dailyAt: '25:00' }).errors.length, 1);
 });
 
-test('link becomes a clickable embed title, with the image below', () => {
-  const [def] = loadEventDefinitions([
-    { title: 'A', time: '09:00', link: 'https://example.com/event', image: 'https://example.com/a.webp' },
-  ]).definitions;
-  assert.deepEqual(buildMessage(def).embeds, [
-    { title: '📖 Xem chi tiết sự kiện', url: 'https://example.com/event', image: { url: 'https://example.com/a.webp' } },
-  ]);
-  assert.equal(loadEventDefinitions([{ title: 'B', time: '09:00', link: 'không phải link' }]).errors.length, 1);
+const { definitions: DAY } = loadEventDefinitions(
+  [
+    { title: 'Tối', time: '20:00', role: 'everyone', type: 'in-game', message: 'Vào game', until: '2026-11-10' },
+    { title: 'Sáng thứ Ba', time: '2026-11-03 09:00', repeat: 'weekly', role: 'dev', link: 'https://e.com/a', image: 'https://e.com/a.webp' },
+    { title: 'Thứ Tư', time: '2026-11-11 12:00', repeat: 'weekly' },
+    { title: 'Ngày 10', time: '2026-10-10 10:00', repeat: 'monthly' },
+    { title: 'Đã hết', time: '08:00', until: '2026-11-09' },
+  ],
+  { dev: ROLE },
+);
+
+test("eventsOnDay lists today's events by time and skips ended ones", () => {
+  const items = eventsOnDay(DAY, at(2026, 11, 10, 8, 7)); // Tuesday 10/11
+  assert.deepEqual(
+    items.map(({ def, occurrence }) => [def.title, occurrence]),
+    [
+      ['Sáng thứ Ba', at(2026, 11, 10, 9)],
+      ['Ngày 10', at(2026, 11, 10, 10)],
+      ['Tối', at(2026, 11, 10, 20)],
+    ],
+  );
+  // Same list late in the day, also for events already past.
+  assert.equal(eventsOnDay(DAY, at(2026, 11, 10, 23, 7)).length, 3);
+  assert.deepEqual(eventsOnDay(DAY, at(2026, 11, 11, 8)).map(({ def }) => def.title), ['Thứ Tư']);
 });
 
-test('type adds an in-game or off-game line under the title', () => {
-  const { definitions, errors } = loadEventDefinitions([
-    { title: 'A', time: '09:00', type: 'off-game', message: 'Đăng ký trước' },
-    { title: 'B', time: '09:00', type: 'In-Game' },
-    { title: 'C', time: '09:00', type: 'online' },
+test('buildDigest makes one message with one embed per event and only the intended mentions', () => {
+  const now = at(2026, 11, 10, 8, 7);
+  const [body, ...rest] = buildDigest(eventsOnDay(DAY, now), now);
+  assert.equal(rest.length, 0);
+  assert.equal(body.content, `@everyone <@&${ROLE}> 📅 **Sự kiện hôm nay — Thứ Ba, 10/11/2026**`);
+  assert.deepEqual(body.allowed_mentions, { parse: ['everyone'], roles: [ROLE] });
+  assert.deepEqual(body.embeds, [
+    { title: '🔔 09:00 · Sáng thứ Ba', description: '[📖 Xem chi tiết sự kiện](https://e.com/a)', image: { url: 'https://e.com/a.webp' } },
+    { title: '🔔 10:00 · Ngày 10' },
+    { title: '🔔 20:00 · Tối', description: '🎮 Sự kiện in-game\nVào game\n⏳ Hôm nay là ngày cuối' },
   ]);
-  assert.equal(errors.length, 1);
-  assert.equal(buildMessage(definitions[0]).content, '🔔 **A**\n📍 Sự kiện off-game\nĐăng ký trước');
-  assert.equal(buildMessage(definitions[1]).content, '🔔 **B**\n🎮 Sự kiện in-game');
+  assert.deepEqual(buildDigest([], now), []);
+});
+
+test('buildDigest splits more than 10 events and pings nobody without roles', () => {
+  const { definitions } = loadEventDefinitions(
+    Array.from({ length: 12 }, (_, i) => ({ title: `S${i}`, time: `${String(i + 8).padStart(2, '0')}:00` })),
+  );
+  const now = at(2026, 11, 10, 8);
+  const bodies = buildDigest(eventsOnDay(definitions, now), now);
+  assert.deepEqual(bodies.map((b) => b.embeds.length), [10, 2]);
+  assert.deepEqual(bodies[0].allowed_mentions, { parse: [], roles: [] });
+  assert.match(bodies[1].content, /\(tiếp\)$/);
 });

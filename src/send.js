@@ -1,10 +1,19 @@
-// One run: send due reminders (events.json) and new feed posts (feeds.json).
-// Run by GitHub Actions every 5 minutes. DRY_RUN=1 prints instead of sending.
+// One run: send today's event digest (events.json) and new feed posts (feeds.json),
+// each once a day. Run by GitHub Actions every hour. DRY_RUN=1 prints instead of sending.
 process.env.TZ ||= 'Asia/Ho_Chi_Minh';
 
 import { readFile, writeFile } from 'node:fs/promises';
-import { REPEATS, buildMessage, findDue, loadEventDefinitions, nextOccurrence, parseRoleMap } from './schedule.js';
-import { buildFeedMessage, findNewItems, isFeedCheckDue, loadFeeds, nextSeen, parseFeed } from './feeds.js';
+import {
+  REPEATS,
+  buildDigest,
+  eventsOnDay,
+  isDailyRunDue,
+  loadDailyAt,
+  loadEventDefinitions,
+  nextOccurrence,
+  parseRoleMap,
+} from './schedule.js';
+import { buildFeedMessage, findNewItems, loadFeeds, nextSeen, parseFeed } from './feeds.js';
 
 const EVENTS_FILE = new URL('../events.json', import.meta.url);
 const STATE_FILE = new URL('../state.json', import.meta.url);
@@ -51,13 +60,15 @@ if (process.env.TEST_MESSAGE === '1') {
 }
 
 const now = Date.now();
+const rawEvents = await readJson(EVENTS_FILE, { events: [] });
 const { roles, errors: roleErrors } = parseRoleMap(process.env.DISCORD_ROLES);
-const { definitions, errors: eventErrors } = loadEventDefinitions(await readJson(EVENTS_FILE, { events: [] }), roles);
-const errors = [...roleErrors, ...eventErrors];
+const { definitions, errors: eventErrors } = loadEventDefinitions(rawEvents, roles);
+const { time: dailyAt, errors: dailyAtErrors } = loadDailyAt(rawEvents);
+const errors = [...roleErrors, ...eventErrors, ...dailyAtErrors];
 const state = await readJson(STATE_FILE, {});
 const fmt = (ms) => new Date(ms).toLocaleString('vi-VN');
 
-console.log(`Now ${fmt(now)} — ${definitions.length} event(s)`);
+console.log(`Now ${fmt(now)} — ${definitions.length} event(s), tin tổng hợp lúc ${dailyAt}`);
 for (const def of definitions) {
   const next = nextOccurrence(def, now);
   console.log(`  • ${def.title} · ${REPEATS[def.repeat]} · next ${next ? fmt(next) : 'đã kết thúc'}`);
@@ -80,19 +91,24 @@ async function post(label, body) {
 }
 
 let failed = errors.length > 0;
-for (const { def, occurrence } of findDue(definitions, now, state)) {
-  if (!(await post(def.title, buildMessage(def)))) {
-    failed = true;
-    continue;
-  }
-  state[def.key] = occurrence;
-  console.log(`Sent "${def.title}" for ${fmt(occurrence)}`);
-}
 
-// Drop state of events that are no longer in events.json.
-const keys = new Set(definitions.map((d) => d.key));
-const nextState = Object.fromEntries(Object.entries(state).filter(([k]) => keys.has(k)));
-await writeFile(STATE_FILE, `${JSON.stringify(nextState, null, 2)}\n`);
+// Daily digest: on the first run at or after dailyAt, one message with today's events.
+// FORCE_DIGEST=1 sends it again (dry runs and checks).
+const { due: digestDue, today } = isDailyRunDue(dailyAt, now, process.env.FORCE_DIGEST === '1' ? null : state.lastDigest);
+if (digestDue) {
+  const items = eventsOnDay(definitions, now);
+  let sent = true;
+  for (const body of buildDigest(items, now)) sent = (await post('Sự kiện hôm nay', body)) && sent;
+  if (sent) {
+    console.log(`Digest ${today}: ${items.length} sự kiện${items.length ? '' : ' — không gửi gì'}`);
+    if (!DRY_RUN) state.lastDigest = today;
+  } else {
+    failed = true; // retried on the next run
+  }
+} else {
+  console.log(`Digest: gửi mỗi ngày lúc ${dailyAt}; lần gần nhất ${state.lastDigest ?? 'chưa có'}`);
+}
+await writeFile(STATE_FILE, `${JSON.stringify({ lastDigest: state.lastDigest }, null, 2)}\n`);
 
 // RSS feeds (feeds.json): once a day at feeds.json "time" (default 09:00), post
 // new posts and remember seen ids in feeds-state.json.
@@ -102,7 +118,7 @@ for (const e of feedErrors) console.error(`  ⚠️ ${e}`);
 failed ||= feedErrors.length > 0;
 
 const LAST_CHECK = '__lastCheck';
-const { due: feedsDue, today } = isFeedCheckDue(feedTime, now, feedState[LAST_CHECK]);
+const { due: feedsDue, today: feedDay } = isDailyRunDue(feedTime, now, feedState[LAST_CHECK]);
 if (feeds.length && !feedsDue) {
   console.log(`Feeds: kiểm tra mỗi ngày lúc ${feedTime}; lần gần nhất ${feedState[LAST_CHECK] ?? 'chưa có'}`);
 }
@@ -135,7 +151,7 @@ for (const feed of feedsDue ? feeds : []) {
 
 const feedUrls = new Set(feeds.map((f) => f.url));
 const nextFeedState = Object.fromEntries(Object.entries(feedState).filter(([url]) => feedUrls.has(url)));
-if (feedsDue && feeds.length) nextFeedState[LAST_CHECK] = today;
+if (feedsDue && feeds.length) nextFeedState[LAST_CHECK] = feedDay;
 else if (feedState[LAST_CHECK]) nextFeedState[LAST_CHECK] = feedState[LAST_CHECK];
 await writeFile(FEEDS_STATE_FILE, `${JSON.stringify(nextFeedState, null, 2)}\n`);
 

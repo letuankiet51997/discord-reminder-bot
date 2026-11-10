@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "discord-event-bot events.json",
-  "description": "Reminder messages posted to one Discord channel through a webhook. Times are Vietnam time (Asia/Ho_Chi_Minh).",
+  "description": "One message a day, at dailyAt, lists today's events in one Discord channel through a webhook. Times are Vietnam time (Asia/Ho_Chi_Minh).",
   "type": "object",
   "required": [
     "events"
@@ -9,6 +9,12 @@
   "properties": {
     "$schema": {
       "type": "string"
+    },
+    "dailyAt": {
+      "type": "string",
+      "pattern": "^\\d{1,2}:\\d{2}$",
+      "default": "08:00",
+      "description": "Time (HH:MM, Vietnam time) of the daily message that lists today's events. Default 08:00."
     },
     "events": {
       "type": "array",
@@ -30,11 +36,11 @@
         "title": {
           "type": "string",
           "minLength": 1,
-          "description": "Bold headline of the reminder."
+          "description": "Bold headline of the event in the daily message."
         },
         "time": {
           "type": "string",
-          "description": "\"HH:MM\" for daily. \"YYYY-MM-DD HH:MM\" or \"DD/MM/YYYY HH:MM\" for weekly and monthly: the date sets the weekday (weekly) or the day of month (monthly).",
+          "description": "\"HH:MM\" for daily. \"YYYY-MM-DD HH:MM\" or \"DD/MM/YYYY HH:MM\" for weekly and monthly: the date sets the weekday (weekly) or the day of month (monthly). The time is shown next to the title.",
           "pattern": "^(\\d{1,2}:\\d{2}|\\d{4}-\\d{1,2}-\\d{1,2} \\d{1,2}:\\d{2}|\\d{1,2}/\\d{1,2}/\\d{4} \\d{1,2}:\\d{2})$"
         },
         "repeat": {
@@ -47,7 +53,7 @@
         },
         "role": {
           "type": "string",
-          "description": "Who to ping: a role alias declared in the DISCORD_ROLES environment variable (e.g. \"dev\"), \"everyone\" or \"here\". Never a role id. Omit for no ping.",
+          "description": "Who to ping in the daily message when this event is on: a role alias declared in the DISCORD_ROLES environment variable (e.g. \"dev\"), \"everyone\" or \"here\". Never a role id. Omit for no ping.",
           "pattern": "^@?[A-Za-z0-9_-]{1,32}$"
         },
         "message": {
@@ -69,7 +75,7 @@
         "until": {
           "type": "string",
           "pattern": "^(\\d{4}-\\d{1,2}-\\d{1,2}|\\d{1,2}/\\d{1,2}/\\d{4})$",
-          "description": "Optional last day to remind (inclusive), YYYY-MM-DD or DD/MM/YYYY. Omit to repeat forever."
+          "description": "Optional last day the event is listed (inclusive), YYYY-MM-DD or DD/MM/YYYY. Omit to repeat forever."
         },
         "type": {
           "enum": [

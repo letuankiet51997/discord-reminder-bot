@@ -1,6 +1,8 @@
 // RSS / Atom feeds: parse, find new posts, build Discord messages.
 // No dependencies: feeds from FetchRSS / RSS.app are simple enough for regex parsing.
 
+import { isDailyRunDue, parseClock } from './schedule.js';
+
 const MAX_TEXT = 300;
 
 function decode(text = '') {
@@ -76,21 +78,8 @@ export function nextSeen(items, seen = []) {
   return [...new Set([...items.map((i) => i.id), ...seen])].slice(0, 100);
 }
 
-const localDay = (ms) => {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-
-/**
- * Feeds are checked once a day: on the first run at or after `time` (HH:MM,
- * local time) of a day not checked yet. Returns { due, today }.
- */
-export function isFeedCheckDue(time, now, lastDay) {
-  const [h, m] = time.split(':').map(Number);
-  const d = new Date(now);
-  const today = localDay(now);
-  return { due: lastDay !== today && d.getHours() * 60 + d.getMinutes() >= h * 60 + m, today };
-}
+/** Feeds are checked once a day, on the first run at or after `time`. */
+export const isFeedCheckDue = isDailyRunDue;
 
 /** Validate feeds.json: { "time"?: "09:00", "feeds": [ { "name", "url", "role"? } ] }. */
 export function loadFeeds(raw, roles) {
@@ -100,8 +89,8 @@ export function loadFeeds(raw, roles) {
   const errors = [];
   let time = '09:00';
   if (raw?.time !== undefined) {
-    const m = String(raw.time).trim().match(/^(\d{1,2}):(\d{2})$/);
-    if (m && +m[1] <= 23 && +m[2] <= 59) time = `${m[1].padStart(2, '0')}:${m[2]}`;
+    const clock = parseClock(raw.time);
+    if (clock) time = clock;
     else errors.push(`feeds.json: "time" phải có dạng HH:MM (đang là ${raw.time}), dùng 09:00`);
   }
   list.forEach((item, index) => {

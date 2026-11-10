@@ -1,17 +1,20 @@
 # discord-event-bot
 
-Gửi tin nhắc nhở vào một kênh Discord theo lịch trong `events.json`.
-Chạy miễn phí bằng **GitHub Actions** (mỗi 5 phút) + **Discord Webhook** —
-không cần server, không cần treo máy.
+Mỗi ngày gửi **một tin tổng hợp** vào một kênh Discord, liệt kê các sự kiện diễn
+ra hôm nay (giờ, loại, nội dung, ảnh, link) theo lịch trong `events.json`.
+Chạy miễn phí bằng **GitHub Actions** (mỗi giờ) + **Discord Webhook** — không cần
+server, không cần treo máy.
 
-> Tin nhắc có thể đến **trễ 5–15 phút** (GitHub chạy lịch không đúng giờ).
-> Lần chạy trễ tối đa 90 phút vẫn gửi; trễ hơn thì bỏ qua lần đó.
+> Tin gửi ở lần chạy đầu tiên từ `dailyAt` (mặc định `08:00`) trở đi. GitHub hay
+> bỏ hoặc trễ lịch chạy, nên tin có thể đến muộn vài giờ; trong ngày chỉ cần một
+> lần chạy thành công là đủ. Hôm nào không có sự kiện thì không gửi gì.
 
 ## Khai báo sự kiện — `events.json`
 
 ```json
 {
   "$schema": "./events.schema.json",
+  "dailyAt": "08:00",
   "events": [
     {
       "title": "Điểm danh buổi sáng",
@@ -30,19 +33,24 @@ không cần server, không cần treo máy.
 }
 ```
 
+`dailyAt` (không bắt buộc): giờ gửi tin tổng hợp mỗi ngày, mặc định `08:00`.
+
+Mỗi sự kiện diễn ra hôm nay là một khung trong tin, xếp theo giờ:
+**🔔 20:00 · Tiêu đề**, rồi loại, nội dung, link **📖 Xem chi tiết sự kiện** và ảnh.
+
 | Trường | Bắt buộc | Giá trị |
 |---|---|---|
-| `title` | ✅ | Tiêu đề in đậm |
-| `time` | ✅ | `08:00`, `2026-11-11 20:00` hoặc `11/11/2026 20:00`. Giờ Việt Nam |
+| `title` | ✅ | Tiêu đề khung |
+| `time` | ✅ | `08:00`, `2026-11-11 20:00` hoặc `11/11/2026 20:00`. Giờ Việt Nam, hiện cạnh tiêu đề |
 | `repeat` | | `daily` (mặc định), `weekly` hoặc `monthly` |
-| `role` | | Tên ngắn khai trong `DISCORD_ROLES` (ví dụ `raider`), `everyone` hoặc `here`. Bỏ trống = không ping |
+| `role` | | Ai được ping khi hôm nay có sự kiện này: tên khai trong `DISCORD_ROLES` (ví dụ `raider`), `everyone` hoặc `here`. Bỏ trống = không ping. Tin tổng hợp ping gộp các role của sự kiện hôm nay |
 | `message` | | Nội dung thêm dưới tiêu đề |
-| `type` | | `in-game` (🎮 Sự kiện in-game) hoặc `off-game` (📍 Sự kiện off-game) — hiện dưới tiêu đề |
-| `until` | | Ngày cuối còn nhắc (tính cả ngày đó): `2026-11-13` hoặc `13/11/2026`. Bỏ trống = lặp mãi |
+| `type` | | `in-game` (🎮 Sự kiện in-game) hoặc `off-game` (📍 Sự kiện off-game) |
+| `until` | | Ngày cuối còn liệt kê (tính cả ngày đó, có dòng ⏳ Hôm nay là ngày cuối): `2026-11-13` hoặc `13/11/2026`. Bỏ trống = lặp mãi |
 | `link` | | Link `https://` trang sự kiện → dòng **📖 Xem chi tiết sự kiện** bấm được |
-| `image` | | Link `https://` ảnh → hiện to dưới tin |
+| `image` | | Link `https://` ảnh → hiện to trong khung |
 
-- `daily`: `time` chỉ cần giờ.
+- `daily`: `time` chỉ cần giờ → có trong tin mỗi ngày.
 - `weekly`: `time` phải có ngày → lặp vào **thứ** của ngày đó.
 - `monthly`: `time` phải có ngày → lặp vào **ngày trong tháng** đó (tháng ngắn
   hơn thì vào ngày cuối tháng).
@@ -128,12 +136,13 @@ sẽ dùng lịch mới.
 
 - **Không để lộ webhook URL**: ai có URL đều gửi được tin vào kênh. Chỉ lưu trong
   GitHub Secret, không ghi vào file nào.
-- **`state.json`** ghi lần nhắc đã gửi để không gửi trùng; workflow tự commit file
-  này. Đừng sửa tay.
-- Lần chạy có lỗi (JSON sai, role trùng, sự kiện trùng…) vẫn gửi các sự kiện hợp
-  lệ, nhưng hiện ❌ trong tab Actions — mở log để xem dòng `⚠️`.
-- GitHub **tắt lịch chạy của repo public sau 60 ngày không có hoạt động**. Các
-  commit `state.json` mỗi khi gửi tin có thể giữ repo hoạt động, nhưng nếu thấy bot
+- **`state.json`** ghi ngày đã gửi tin tổng hợp (`lastDigest`) để không gửi trùng;
+  workflow tự commit file này. Đừng sửa tay. Muốn gửi lại tin hôm nay: xoá dòng
+  `lastDigest` rồi commit.
+- Lần chạy có lỗi (JSON sai, role trùng, sự kiện trùng…) vẫn gửi tin với các sự
+  kiện hợp lệ, nhưng hiện ❌ trong tab Actions — mở log để xem dòng `⚠️`.
+- GitHub **tắt lịch chạy của repo public sau 60 ngày không có hoạt động**. Commit
+  `state.json` mỗi ngày có thể giữ repo hoạt động, nhưng nếu thấy bot
   im lặng, vào tab Actions bật lại workflow.
 - Repo public nên ai cũng xem được `events.json`. Đừng ghi thông tin riêng tư.
 
@@ -141,7 +150,7 @@ sẽ dùng lịch mới.
 
 ```bash
 npm test          # kiểm tra logic và events.json
-DISCORD_ROLES="dev=123..." npm run dry-run   # in ra tin sẽ gửi lúc này, không gửi thật
+DISCORD_ROLES="dev=123..." FORCE_DIGEST=1 npm run dry-run   # in ra tin hôm nay, không gửi thật
 DISCORD_ROLES="dev=123..." DISCORD_WEBHOOK_URL=... npm run send   # gửi thật
 ```
 

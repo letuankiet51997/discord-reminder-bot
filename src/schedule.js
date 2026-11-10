@@ -1,4 +1,4 @@
-// Pure logic: parse events.json and decide which reminders are due.
+// Pure logic: parse events.json and build the daily digest of today's events.
 // All dates use the process time zone (TZ=Asia/Ho_Chi_Minh).
 
 export const REPEATS = {
@@ -55,28 +55,6 @@ function monthlyOn(year, month, start) {
   return atTimeOf(new Date(year, month, Math.min(start.getDate(), lastDay)), start).getTime();
 }
 
-/** Latest occurrence of the event at or before `now`, or null if none yet. */
-export function previousOccurrence({ startAt, repeat }, now) {
-  if (now < startAt) return null;
-  const start = new Date(startAt);
-  const today = new Date(now);
-
-  if (repeat === 'monthly') {
-    for (let i = 0; i < 3; i += 1) {
-      const occ = monthlyOn(today.getFullYear(), today.getMonth() - i, start);
-      if (occ <= now && occ >= startAt) return occ;
-    }
-    return null;
-  }
-
-  for (let i = 0; i < 8; i += 1) {
-    const day = atTimeOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() - i), start);
-    const matches = repeat === 'daily' || day.getDay() === start.getDay();
-    if (matches && day.getTime() <= now && day.getTime() >= startAt) return day.getTime();
-  }
-  return null;
-}
-
 /** First occurrence of the event after `now` (null once past `until`). Used for logs. */
 export function nextOccurrence(def, now) {
   const occ = rawNextOccurrence(def, now);
@@ -101,23 +79,6 @@ function rawNextOccurrence({ startAt, repeat }, now) {
     if (matches && day.getTime() > now && day.getTime() >= startAt) return day.getTime();
   }
   return null;
-}
-
-/**
- * Reminders to send now. A reminder is due when its latest occurrence is not
- * older than `maxLateMs` and was not sent yet (`state[key]` is the occurrence
- * last sent). GitHub Actions runs late, so the window is generous.
- */
-export function findDue(definitions, now, state, maxLateMs = 90 * 60_000) {
-  const due = [];
-  for (const def of definitions) {
-    const occurrence = previousOccurrence(def, now);
-    if (occurrence === null || now - occurrence > maxLateMs) continue;
-    if (def.until != null && occurrence > def.until) continue;
-    if ((state[def.key] ?? 0) >= occurrence) continue;
-    due.push({ def, occurrence });
-  }
-  return due;
 }
 
 const ALIAS = /^[a-z0-9_-]{1,32}$/;
@@ -269,25 +230,90 @@ export function parseImageUrl(value) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Daily digest: one message a day that lists today's events.
+
+const WEEKDAYS = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+const MAX_EMBEDS = 10; // Discord limit per message
+const pad = (n) => String(n).padStart(2, '0');
+
+/** "YYYY-MM-DD" of `ms` in the process time zone. */
+export function localDay(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** "9:00" / "09:00" → "09:00", or null. */
+export function parseClock(text) {
+  const m = String(text).trim().match(/^(\d{1,2}):(\d{2})$/);
+  return m && +m[1] <= 23 && +m[2] <= 59 ? `${pad(m[1])}:${m[2]}` : null;
+}
+
 /**
- * Discord webhook body for one reminder. A link and an image go into one
- * embed: the link as a clickable "Xem chi tiết" title, the image below it.
+ * Something done once a day: due on the first run at or after `time` (HH:MM)
+ * of a day not done yet (`lastDay`). Returns { due, today }.
  */
-export function buildMessage({ title, role, type, message, image, link }) {
-  const everyone = role === 'everyone' || role === 'here';
-  const mention = !role ? '' : everyone ? `@${role} ` : `<@&${role}> `;
-  const lines = [`${mention}🔔 **${title}**`];
-  if (type) lines.push(EVENT_TYPES[type]);
-  if (message) lines.push(message);
-  const body = {
-    content: lines.join('\n'),
-    allowed_mentions: everyone ? { parse: ['everyone'] } : { parse: [], roles: role ? [role] : [] },
-  };
-  if (image || link) {
-    const embed = {};
-    if (link) Object.assign(embed, { title: '📖 Xem chi tiết sự kiện', url: link });
-    if (image) embed.image = { url: image };
-    body.embeds = [embed];
+export function isDailyRunDue(time, now, lastDay) {
+  const [h, m] = time.split(':').map(Number);
+  const d = new Date(now);
+  const today = localDay(now);
+  return { due: lastDay !== today && d.getHours() * 60 + d.getMinutes() >= h * 60 + m, today };
+}
+
+/** events.json "dailyAt": time of the daily digest, default 08:00. */
+export function loadDailyAt(raw) {
+  if (raw?.dailyAt === undefined) return { time: '08:00', errors: [] };
+  const time = parseClock(raw.dailyAt);
+  return time
+    ? { time, errors: [] }
+    : { time: '08:00', errors: [`events.json: "dailyAt" phải có dạng HH:MM (đang là ${raw.dailyAt}), dùng 08:00`] };
+}
+
+/** Events that happen on the local day of `now`, sorted by time: [{ def, occurrence }]. */
+export function eventsOnDay(definitions, now) {
+  const d = new Date(now);
+  const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
+  return definitions
+    .map((def) => ({ def, occurrence: nextOccurrence(def, dayStart - 1) }))
+    .filter(({ occurrence }) => occurrence !== null && occurrence < dayEnd)
+    .sort((a, b) => a.occurrence - b.occurrence);
+}
+
+/**
+ * Discord webhook bodies for the digest of one day (one embed per event, at
+ * most 10 per message). Links go in the description: embeds that share a url
+ * would be merged into one by Discord.
+ */
+export function buildDigest(items, now) {
+  if (!items.length) return [];
+  const roles = new Set(items.map(({ def }) => def.role).filter(Boolean));
+  const everyone = roles.has('everyone') ? 'everyone' : roles.has('here') ? 'here' : null;
+  const roleIds = [...roles].filter((r) => r !== 'everyone' && r !== 'here');
+  const mentions = [everyone && `@${everyone}`, ...roleIds.map((id) => `<@&${id}>`)].filter(Boolean).join(' ');
+
+  const d = new Date(now);
+  const header = `📅 **Sự kiện hôm nay — ${WEEKDAYS[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}**`;
+  const embeds = items.map(({ def, occurrence }) => {
+    const t = new Date(occurrence);
+    const lines = [];
+    if (def.type) lines.push(EVENT_TYPES[def.type]);
+    if (def.message) lines.push(def.message);
+    if (def.until != null && localDay(def.until) === localDay(now)) lines.push('⏳ Hôm nay là ngày cuối');
+    if (def.link) lines.push(`[📖 Xem chi tiết sự kiện](${def.link})`);
+    const embed = { title: `🔔 ${pad(t.getHours())}:${pad(t.getMinutes())} · ${def.title}` };
+    if (lines.length) embed.description = lines.join('\n');
+    if (def.image) embed.image = { url: def.image };
+    return embed;
+  });
+
+  const bodies = [];
+  for (let i = 0; i < embeds.length; i += MAX_EMBEDS) {
+    bodies.push({
+      content: i === 0 ? `${mentions ? `${mentions} ` : ''}${header}` : `${header} (tiếp)`,
+      allowed_mentions: i === 0 ? { parse: everyone ? ['everyone'] : [], roles: roleIds } : { parse: [] },
+      embeds: embeds.slice(i, i + MAX_EMBEDS),
+    });
   }
-  return body;
+  return bodies;
 }
