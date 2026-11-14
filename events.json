@@ -78,6 +78,17 @@
       "message": "Rủ thêm bạn bè đăng ký trước, càng đông quà càng lớn! Đăng nhập từ 5/11 nhận thú cưỡi Vịt Ngốc + 500 Ngọc Chạm.",
       "link": "https://www.swordofjustice.com/h5/20261002/yyhdvnsea/#/",
       "image": "https://cdn-mainsite-aka.vnggames.com/upload/nghichthuyhan/source/SuKien/2026-10-603-tong-hop-su-kien-mung-ky-niem-1/dang-ky-truoc.webp"
+    },
+    {
+      "title": "Thời Vận Phúc Ban",
+      "time": "08:00",
+      "repeat": "daily",
+      "role": "nth",
+      "type": "in-game",
+      "message": "Ưu đãi toàn server, không cần báo danh: Thẻ La Thái 300%, rơi Ngoại Trang phó bản 300%, Phong Vân Lệnh +20%, Trang Viên +20%. Tranh thủ đi phó bản nhé!",
+      "until": "2026-11-29",
+      "link": "https://nghichthuyhan.vnggames.com/news/event/tong-hop-su-kien-mung-ky-niem-1-nam.html",
+      "image": "https://cdn-mainsite-aka.vnggames.com/upload/nghichthuyhan/source/SuKien/2026-10-603-tong-hop-su-kien-mung-ky-niem-1/thoi-van.webp"
     }
   ]
 }
