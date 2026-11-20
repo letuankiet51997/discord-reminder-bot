@@ -89,6 +89,50 @@
       "until": "2026-11-29",
       "link": "https://nghichthuyhan.vnggames.com/news/event/tong-hop-su-kien-mung-ky-niem-1-nam.html",
       "image": "https://cdn-mainsite-aka.vnggames.com/upload/nghichthuyhan/source/SuKien/2026-10-603-tong-hop-su-kien-mung-ky-niem-1/thoi-van.webp"
+    },
+    {
+      "title": "Mã May Khai Vận — tích Mã Số May Mắn",
+      "time": "2026-11-19 20:00",
+      "repeat": "daily",
+      "role": "nth",
+      "type": "off-game",
+      "message": "Mỗi 20.000đ nạp tích lũy = 1 Mã Số May Mắn. Vào trang sự kiện bấm Nhận lượt rồi Nhận Mã. Hạn tích mã 23:59 ngày 22/11, nên nạp trước 23:00 để kịp ghi nhận.",
+      "until": "2026-11-22",
+      "link": "https://nghichthuyhan.vnggames.com/news/event/the-le-su-kien-ma-may-khai-van-thang-11-2026.html",
+      "image": "https://cdn-mainsite-aka.vnggames.com/upload/nghichthuyhan/source/SuKien/2026-08-544-the-le-su-kien-ma-may-khai-van/1-resize-16-9.webp"
+    },
+    {
+      "title": "Mã May Khai Vận — quay số",
+      "time": "2026-11-23 12:00",
+      "repeat": "weekly",
+      "role": "nth",
+      "type": "off-game",
+      "message": "12:00 quay số 566 giải, tổng 78.880 Ngọc. Xem kết quả ở mục Danh Sách Trúng Thưởng trên trang sự kiện, đối chiếu với mã trong mục Lịch Sử.",
+      "until": "2026-11-23",
+      "link": "https://nghichthuyhan.vnggames.com/news/event/the-le-su-kien-ma-may-khai-van-thang-11-2026.html",
+      "image": "https://cdn-mainsite-aka.vnggames.com/upload/nghichthuyhan/source/SuKien/2026-08-544-the-le-su-kien-ma-may-khai-van/1-resize-16-9.webp"
+    },
+    {
+      "title": "Hội Thi Thiết Kế Phường Sáng Tạo — vòng thiết kế",
+      "time": "2026-11-16 21:00",
+      "repeat": "daily",
+      "role": "nth",
+      "type": "in-game",
+      "message": "Tạo Ải Game (Menu → Phường Sáng Tạo → Ý Tưởng Mới → Tạo Ải) theo chủ đề Đua Xe, Đua Tốc, Sinh Tồn hoặc Tính Điểm, đăng lên Group Đông Kinh Mộng Hoa Lục kèm #Phuongsangtao #Hoithithietke và điền form. Hạn 23:59 ngày 28/11 (sửa bài trước 23:59 ngày 27/11).",
+      "until": "2026-11-28",
+      "link": "https://nghichthuyhan.vnggames.com/news/event/cong-bo-s-kien-hoi-thi-thiet-ke-phuong-sang-tao.html",
+      "image": "https://cdn-mainsite-aka.vnggames.com/upload/nghichthuyhan/source/COVER%20H%E1%BB%98I%20THI%20PH%C6%AF%E1%BB%9CNG%20S%C3%81NG%20T%E1%BA%A0O.png"
+    },
+    {
+      "title": "Hội Thi Thiết Kế Phường Sáng Tạo — vòng bình chọn",
+      "time": "2026-11-30 21:00",
+      "repeat": "daily",
+      "role": "nth",
+      "type": "off-game",
+      "message": "Bình chọn Ải Game yêu thích qua Google Form trên Fanpage Nghịch Thủy Hàn, mỗi tài khoản Google 1 phiếu. Hạn 23:59 ngày 02/12.",
+      "until": "2026-12-02",
+      "link": "https://nghichthuyhan.vnggames.com/news/event/cong-bo-s-kien-hoi-thi-thiet-ke-phuong-sang-tao.html",
+      "image": "https://cdn-mainsite-aka.vnggames.com/upload/nghichthuyhan/source/COVER%20H%E1%BB%98I%20THI%20PH%C6%AF%E1%BB%9CNG%20S%C3%81NG%20T%E1%BA%A0O.png"
     }
   ]
 }
